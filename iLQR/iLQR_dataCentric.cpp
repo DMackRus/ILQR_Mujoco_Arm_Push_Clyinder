@@ -136,7 +136,14 @@ float iLQR::rollOutTrajectory(){
     cpMjData(model, mdata, d_init);
     for(int i = 0; i < ILQR_HORIZON_LENGTH; i++){
         modelTranslator->setControls(mdata, U_old[i]);
-        float stateCost = modelTranslator->getCost(mdata, i, ILQR_HORIZON_LENGTH);
+        float stateCost;
+        if(i == 0){
+            stateCost = modelTranslator->getCost(mdata, U_old[0], i, ILQR_HORIZON_LENGTH, true);
+        }
+        else{
+            stateCost = modelTranslator->getCost(mdata, U_old[i-1], i, ILQR_HORIZON_LENGTH, false);
+        }
+
         cost += (stateCost * ILQR_DT);
         modelTranslator->stepModel(mdata, NUM_MJSTEPS_PER_CONTROL);
     }
@@ -174,7 +181,13 @@ void iLQR::getDerivatives(){
         f_x[t] = A.replicate(1,1);
         f_u[t] = B.replicate(1,1);
 
-        modelTranslator->costDerivatives(mdata, l_x[t], l_xx[t], l_u[t], l_uu[t], t, ILQR_HORIZON_LENGTH);
+        if(t == 0){
+            modelTranslator->costDerivatives_fd(mdata, l_x[t], l_xx[t], l_u[t], l_uu[t], t, ILQR_HORIZON_LENGTH, U_old[0], true);
+        }
+        else{
+            modelTranslator->costDerivatives_fd(mdata, l_x[t], l_xx[t], l_u[t], l_uu[t], t, ILQR_HORIZON_LENGTH, U_old[t-1], false);
+        }
+
 
         l_x[t]  *= ILQR_DT;
         l_xx[t] *= ILQR_DT;
@@ -192,7 +205,7 @@ void iLQR::getDerivatives(){
     model->opt.tolerance = save_tolerance;
 
     //TODO FIX FACT THAT THERE SHOULD BE NO CONTROL COST AT END OF TRAJECTORY
-    modelTranslator->costDerivatives(mdata, l_x[ILQR_HORIZON_LENGTH], l_xx[ILQR_HORIZON_LENGTH], l_u[ILQR_HORIZON_LENGTH-1], l_uu[ILQR_HORIZON_LENGTH-1], ILQR_HORIZON_LENGTH, ILQR_HORIZON_LENGTH);
+    modelTranslator->costDerivatives_fd(mdata, l_x[ILQR_HORIZON_LENGTH], l_xx[ILQR_HORIZON_LENGTH], l_u[ILQR_HORIZON_LENGTH-1], l_uu[ILQR_HORIZON_LENGTH-1], ILQR_HORIZON_LENGTH, ILQR_HORIZON_LENGTH, U_old[ILQR_HORIZON_LENGTH - 2], false);
     l_x [ILQR_HORIZON_LENGTH] *= ILQR_DT;
     l_xx[ILQR_HORIZON_LENGTH] *= ILQR_DT;
 
@@ -391,18 +404,23 @@ float iLQR::forwardsPass(float oldCost){
                 U_new[t] = U_last + (alpha * k[t]) + feedBackGain;
             }
 
-
-//            cout << "k " << k[t] << endl;
-//            cout << "K " << K[t] << endl;
-//            cout << "feedBackGain " << feedBackGain << endl;
-//            cout << "U_last " << U_last << endl;
-//            cout << "New U: " << U_new[t] << endl;
+            for(int k = 0; k < NUM_CTRL; k++){
+                if(U_new[t](k) > modelTranslator->torqueLims[k]) U_new[t](k) = modelTranslator->torqueLims[k];
+                if(U_new[t](k) < -modelTranslator->torqueLims[k]) U_new[t](k) = -modelTranslator->torqueLims[k];
+            }
 
 
             modelTranslator->setControls(mdata, U_new[t]);
 
             // calc current state cost and keep running tally
-            float currentCost = modelTranslator->getCost(mdata, t, ILQR_HORIZON_LENGTH);
+            float currentCost;
+            if(t == 0){
+                currentCost = modelTranslator->getCost(mdata, U_new[0], t, ILQR_HORIZON_LENGTH, true);
+            }
+            else{
+                currentCost = modelTranslator->getCost(mdata, U_new[t-1], t, ILQR_HORIZON_LENGTH, false);
+            }
+
 
             newCost += (currentCost * ILQR_DT);
 

@@ -13,7 +13,7 @@
 #include "mujoco.h"
 
 #define RUN_ILQR 1
-#define TEST_LINEARISATION 1
+#define TEST_LINEARISATION 0
 
 
 extern MujocoController *globalMujocoController;
@@ -68,7 +68,7 @@ int main() {
             0, 0, 0;
 
     X_desired << 0 ,0, 0, 0, 0, 0, 0,
-            1, 0, 0,
+            0.9, 0.2, 0,
             0, 0, 0, 0, 0, 0, 0,
             0, 0, 0;
 
@@ -76,12 +76,20 @@ int main() {
 
     if(RUN_ILQR){
 
+        auto iLQRStart = high_resolution_clock::now();
+
         modelTranslator = new frankaModel(model, X_desired);
         optimiser = new iLQR(model, mdata, X0, modelTranslator, globalMujocoController);
         initControls();
         optimiser->setInitControls(testInitControls);
         optimiser->makeDataForOptimisation();
         testILQR(X0);
+
+        auto iLQRStop = high_resolution_clock::now();
+        auto iLQRDur = duration_cast<microseconds>(iLQRStop - iLQRStart);
+
+        cout << "iLQR took " << iLQRDur.count()/1000000 << " seconds" << endl;
+
         render();
     }
     else{
@@ -298,8 +306,6 @@ void testILQR(m_state X0){
 
     outputFile << endl;
 
-    auto iLQRStart = high_resolution_clock::now();
-
     for(int i = 0; i < ILQR_HORIZON_LENGTH+1; i++){
         X_dyn.push_back(m_state());
         X_lin.push_back(m_state());
@@ -471,11 +477,6 @@ void testILQR(m_state X0){
     cpMjData(model, mdata, optimiser->d_init);
 
     optimiser->optimise();
-
-    auto iLQRStop = high_resolution_clock::now();
-    auto iLQRDur = duration_cast<microseconds>(iLQRStop - iLQRStart);
-
-    cout << "iLQR took " << iLQRDur.count()/1000000 << " seconds" << endl;
 
     saveTrajecToCSV();
 

@@ -18,8 +18,6 @@
 #define NUM_MJSTEPS_PER_CONTROL 10
 #define ILQR_HORIZON_LENGTH 500
 
-#define USE_D_ARRAY false
-
 ;
 //template<int HORIZON_LENGTH>
 class iLQR

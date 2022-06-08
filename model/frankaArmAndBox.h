@@ -34,22 +34,24 @@ public:
     std::vector<std::string> stateNames;
     int stateIndexToStateName[DOF] = {0, 1, 2, 3, 4, 5, 6, 7, 7, 7};
 
+    float torqueLims[NUM_CTRL] = {87, 87, 87, 87, 12, 12, 12};
+
     mjModel* model;
     m_state X_desired;
     m_ctrl_ctrl R;
     m_state_state Q;
 
-    float getCost(mjData *d, int controlNum, int totalControls);
+    float getCost(mjData *d, m_ctrl lastControl, int controlNum, int totalControls, bool firstControl);
     // Given a set of mujoco data, what is the cost of its state and controls
-    float costFunction(int controlNum, int totalControls, m_state X, m_ctrl Us);
+    float costFunction(int controlNum, int totalControls, m_state X, m_ctrl U, m_ctrl lastControl, bool firstControl);
 
     // Given a set of mujoco data, what are its cost derivates with respect to state and control
     void costDerivatives(mjData *d, Ref<m_state> l_x, Ref<m_state_state> l_xx, Ref<m_ctrl> l_u, Ref<m_ctrl_ctrl> l_uu, int controlNum, int totalControls);
-    void costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_state> l_xx, Ref<m_ctrl> l_u, Ref<m_ctrl_ctrl> l_uu, int controlNum, int totalControls);
-    m_state costDerivatives_fd_1stOrder(m_state X, m_ctrl U, int controlNum, int totalControls);
+    void costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_state> l_xx, Ref<m_ctrl> l_u, Ref<m_ctrl_ctrl> l_uu, int controlNum, int totalControls, m_ctrl U_last,  bool firstControl);
+    m_ctrl costDerivatives_fd_1stOrder(m_state X, m_ctrl U, m_ctrl U_last, int controlNum, int totalControls, bool firstControl);
 
     // set the state of a mujoco data object as per this model
-    void setState(mjData *d, m_state X);
+    void setState(mjData *d, m_state X);iLQRStart
 
     // Return the state of a mujoco data model
     m_state returnState(mjData *d);
