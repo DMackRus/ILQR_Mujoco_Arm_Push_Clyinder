@@ -1,16 +1,10 @@
 #include "Utility/MujocoController/MujocoUI.h"
 #include "iLQR/iLQR_dataCentric.h"
-#include "model/acrobotModel.h"
-#include "model/boxPushBoxModel.h"
 #include "model/frankaArmAndBox.h"
+#include "Utility/stdInclude/stdInclude.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <iostream>
-
-#include <Eigen/Core>
 #include "mujoco.h"
+
 
 #define RUN_ILQR 1
 #define TEST_LINEARISATION 0
@@ -68,11 +62,10 @@ int main() {
             0, 0, 0;
 
     X_desired << 0 ,0, 0, 0, 0, 0, 0,
-            0.9, 0.2, 0,
+            0.8, 0.2, 0,
             0, 0, 0, 0, 0, 0, 0,
             0, 0, 0;
 
-    setStateTest();
 
     if(RUN_ILQR){
 
@@ -146,7 +139,7 @@ void initControls(){
     m_pose direction;
     direction << 0.6, 0, 0, 0, 0, 0;
     float magnitudeDiff = sqrt((pow(direction(0), 2)) + (pow(direction(1), 2)) + (pow(direction(2), 2)));
-    //float forceMagnitude = 30;
+    //float forceMagnitude = 50;
     float forceMagnitude = 50;
     // normalise vector diff
     direction /= magnitudeDiff;
@@ -205,50 +198,6 @@ void initControls(){
         }
     }
 }
-
-//void initControls(){
-//    d_init_test = mj_makeData(model);
-//    modelTranslator->setState(mdata, X0);
-//    m_state check;
-//    check = modelTranslator->returnState(mdata);
-//    cout << "X0 is: " << check << endl;
-//    for(int i = 0; i < 5; i++){
-//        mj_step(model, mdata);
-//    }
-//
-//
-//    check = modelTranslator->returnState(mdata);
-//    cout << "X0 is: " << check << endl;
-//    cpMjData(model, d_init_test, mdata);
-//    float xstart = 1.8 * 10;
-//    float xend = 3.0 * 10;
-//    float xAdd = (xend - xstart) / ILQR_HORIZON_LENGTH;
-//
-//    float ystart = 0;
-//    float yend = 0;
-//    float yAdd = (yend - ystart) / ILQR_HORIZON_LENGTH;
-//
-//    float xcurr = xstart;
-//    float ycurr = ystart;
-//
-//
-//    for(int i = 0; i <= ILQR_HORIZON_LENGTH; i++){
-//
-//        testInitControls.push_back(m_ctrl());
-//
-//        testInitControls[i](0) = xcurr;
-//        testInitControls[i](1) = ycurr;
-//        mdata->ctrl[0] = testInitControls[i](0);
-//
-//        for(int j = 0; j < NUM_MJSTEPS_PER_CONTROL; j++){
-//            mj_step(model, mdata);
-//        }
-//
-//        xcurr += xAdd;
-//        ycurr += yAdd;
-//
-//    }
-//}
 
 void simpleTest(){
 
@@ -386,7 +335,7 @@ void testILQR(m_state X0){
                 optimiser->scaleLinearisation(A_scaled, B_scaled, A, B, NUM_MJSTEPS_PER_CONTROL);
 
 
-                if(i >= 1190 and i <= 1195){
+                if(i >= 500 and i <= 505){
                     cout << "------------------------ i = 1190 ----------------------------" << endl;
                     cout << "A is" << endl << A << endl;
                     cout << "B is" << endl << B << endl;
@@ -418,7 +367,7 @@ void testILQR(m_state X0){
 //                }
 
                 // Calculate X bar dot via X(.) = Ax + BU
-                X_bar_dot = (A * X_bar) + (B * U_bar);
+                X_bar_dot = (A_scaled * X_bar) + (B_scaled * U_bar);
 
                 // temporary, compare linearised x dot to mujoco velocities and accelerations:
                 m_dof velocities = modelTranslator->returnVelocities(mdata);
@@ -484,7 +433,7 @@ void testILQR(m_state X0){
 
 void saveTrajecToCSV(){
 
-    for(int i = 0; i < ILQR_HORIZON_LENGTH; i++){
+    for(int i = 0; i < MUJ_STEPS_HORIZON_LENGTH; i++){
         outputFile << i << ",";
 
         for(int j = 0; j < NUM_CTRL; j++){
@@ -492,11 +441,11 @@ void saveTrajecToCSV(){
         }
 
         for(int j = 0; j < DOF; j++){
-            outputFile << optimiser->X_new[i](j) << ",";
+            //outputFile << optimiser->X_new[i](j) << ",";
         }
 
         for(int j = 0; j < DOF; j++){
-            outputFile << optimiser->X_new[i](j+DOF) << ",";
+            //outputFile << optimiser->X_new[i](j+DOF) << ",";
         }
         outputFile << endl;
     }

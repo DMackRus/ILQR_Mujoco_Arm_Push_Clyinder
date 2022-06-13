@@ -9,13 +9,14 @@ extern MujocoController *globalMujocoController;
 frankaModel::frankaModel(mjModel *m, m_state _desiredState){
     X_desired = _desiredState.replicate(1, 1);
 
-    R.setIdentity();
+    //R.setIdentity();
     for(int i = 0; i < NUM_CTRL; i++){
-        R(i, i) = controlCost[i];
+        R.diagonal()[i] = controlCost[i];
     }
-    Q.setIdentity();
+
+    //Q.setIdentity();
     for(int i = 0; i < 2 * DOF; i++){
-        Q(i, i) = stateCosts[i];
+        Q.diagonal()[i] = stateCosts[i];
     }
 
     model = m;
@@ -34,8 +35,8 @@ frankaModel::frankaModel(mjModel *m, m_state _desiredState){
     stateNames[6] = "panda0_link7";
     stateNames[7] = "box_obstacle_1";
 
-    cout << "R: " << R << endl;
-    cout << "Q: " << Q << endl;
+    cout << "R: " << R.diagonal() << endl;
+    cout << "Q: " << Q.diagonal() << endl;
 
 }
 
@@ -68,7 +69,7 @@ float frankaModel::costFunction(int controlNum, int totalControls, m_state X, m_
 
     if(!firstControl){
         for(int i = 0; i < NUM_CTRL; i++){
-            jerkCost += 0.001 * (U(i) - lastControl(i));
+            jerkCost += 0.0001 * pow((U(i) - lastControl(i)), 2);
         }
     }
 
@@ -92,6 +93,7 @@ void frankaModel::costDerivatives(mjData *d, Ref<m_state> l_x, Ref<m_state_state
     X_diff = X - X_desired;
     float percentageDone = (float)controlNum / (float)totalControls;
     float terminalScalar = (percentageDone * terminalConstant) + 1;
+    terminalScalar = 1;
 
     l_x = 2 * terminalScalar *  Q * X_diff;
     l_xx = 2 *  terminalScalar * Q;
@@ -170,9 +172,36 @@ void frankaModel::costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_st
     X_diff = X - X_desired;
     float percentageDone = (float)controlNum / (float)totalControls;
     float terminalScalar = (percentageDone * terminalConstant) + 1;
+    terminalScalar = 1;
 
     l_x = 2 * terminalScalar *  Q * X_diff;
     l_xx = 2 *  terminalScalar * Q;
+}
+
+m_ctrl frankaModel::costDerivatives_fd_1stOrder(m_state X, m_ctrl U, m_ctrl U_last, int controlNum, int totalControls, bool firstControl){
+    m_ctrl l_u;
+    float eps = 1e-1;
+
+    for(int i = 0; i < NUM_CTRL; i++){
+        m_ctrl U_inc;
+        m_ctrl U_dec;
+        float costInc;
+        float costDec;
+
+        U_inc = U.replicate(1,1);
+        U_dec = U.replicate(1,1);
+
+        U_inc(i) += eps;
+        U_dec(i) -= eps;
+
+        costInc = costFunction(controlNum, totalControls, X, U_inc, U_last, firstControl);
+        costDec = costFunction(controlNum, totalControls, X, U_dec, U_last, firstControl);
+
+        l_u(i) = (costInc - costDec) / (2 * eps);
+
+    }
+
+    return l_u;
 }
 
 //m_state frankaModel::costDerivatives_fd_1stOrder(m_state X, m_ctrl U, int controlNum, int totalControls){
@@ -200,32 +229,6 @@ void frankaModel::costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_st
 //
 //    return l_x;
 //}
-
-m_ctrl frankaModel::costDerivatives_fd_1stOrder(m_state X, m_ctrl U, m_ctrl U_last, int controlNum, int totalControls, bool firstControl){
-    m_ctrl l_u;
-    float eps = 1e-1;
-
-    for(int i = 0; i < NUM_CTRL; i++){
-        m_ctrl U_inc;
-        m_ctrl U_dec;
-        float costInc;
-        float costDec;
-
-        U_inc = U.replicate(1,1);
-        U_dec = U.replicate(1,1);
-
-        U_inc(i) += eps;
-        U_dec(i) -= eps;
-
-        costInc = costFunction(controlNum, totalControls, X, U_inc, U_last, firstControl);
-        costDec = costFunction(controlNum, totalControls, X, U_dec, U_last, firstControl);
-
-        l_u(i) = (costInc - costDec) / (2 * eps);
-
-    }
-
-    return l_u;
-}
 
 // set the state of a mujoco data object as per this model
 void frankaModel::setState(mjData *d, m_state X){

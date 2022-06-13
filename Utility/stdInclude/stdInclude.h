@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <math.h>
+#include <omp.h>
 
 #define DOF 10
 #define NUM_CTRL 7

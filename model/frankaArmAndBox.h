@@ -38,8 +38,10 @@ public:
 
     mjModel* model;
     m_state X_desired;
-    m_ctrl_ctrl R;
-    m_state_state Q;
+    DiagonalMatrix<double, NUM_CTRL> R;
+    DiagonalMatrix<double, 2 * DOF> Q;
+//    m_ctrl_ctrl R;
+//    m_state_state Q;
 
     float getCost(mjData *d, m_ctrl lastControl, int controlNum, int totalControls, bool firstControl);
     // Given a set of mujoco data, what is the cost of its state and controls
@@ -51,7 +53,7 @@ public:
     m_ctrl costDerivatives_fd_1stOrder(m_state X, m_ctrl U, m_ctrl U_last, int controlNum, int totalControls, bool firstControl);
 
     // set the state of a mujoco data object as per this model
-    void setState(mjData *d, m_state X);iLQRStart
+    void setState(mjData *d, m_state X);
 
     // Return the state of a mujoco data model
     m_state returnState(mjData *d);

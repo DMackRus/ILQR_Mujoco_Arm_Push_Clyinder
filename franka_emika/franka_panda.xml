@@ -17,7 +17,7 @@
 <!-- 0.071 -->
 		<body pos="0.4 0.02 0.071" name="box_obstacle_1">
 			<joint type="free" />
-			<geom type = "cylinder" pos = "0 0 0" size = "0.09 0.07" mass="0.4" rgba = "0 0 1 0.8" solimp="0.4 0.5 0.001 0.5 2" solref = "0.06 1" condim="4" margin = "0.001"/>
+			<geom type = "cylinder" pos = "0 0 0" size = "0.09 0.07" mass="0.4" rgba = "0 0 1 0.8" solimp="0.4 0.5 0.001 0.5 2" solref = "0.06 0.8" condim="4" margin = "0.001"/>
             <!-- <geom type="capsule" pos = "0 0 0" size="0.05 0.03" mass="0.2" rgba = "0 0 1 0.8" solimp="0 0.4 0.001 0.9 6" solref = "0.02 1" margin = "0.001"/> -->:
             <!-- <geom type = "cylinder" pos = "0 0 0" size = "0.05 0.07" mass="0.1" rgba = "0 1 0 0.8" solimp="0 0.4 0.001 0.9 6" solref = "0.02 1" margin = "0.001"/> -->
             <!-- "box" pos = "0 0 0" size = "0.05 0.05 0.07"  -->

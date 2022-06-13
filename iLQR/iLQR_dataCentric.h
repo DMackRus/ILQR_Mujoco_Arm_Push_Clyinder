@@ -17,6 +17,7 @@
 #define ILQR_DT 0.02
 #define NUM_MJSTEPS_PER_CONTROL 10
 #define ILQR_HORIZON_LENGTH 500
+#define MUJ_STEPS_HORIZON_LENGTH 5000
 
 ;
 //template<int HORIZON_LENGTH>
@@ -66,12 +67,19 @@ class iLQR
 
     std::vector<m_state_state> A_scaled;
     std::vector<m_state_ctrl> B_scaled;
+    std::vector<m_state_state> A;
+    std::vector<m_state_ctrl> B;
 
     // Quadratic cost partial derivatives
     std::vector<m_state> l_x;
     std::vector<m_state_state> l_xx;
     std::vector<m_ctrl> l_u;
     std::vector<m_ctrl_ctrl> l_uu;
+
+    std::vector<m_state> l_x_o;
+    std::vector<m_state_state> l_xx_o;
+    std::vector<m_ctrl> l_u_o;
+    std::vector<m_ctrl_ctrl> l_uu_o;
 
     // Initialise state feedback gain matrices
     std::vector<m_ctrl> k;
@@ -80,7 +88,7 @@ class iLQR
     // Initialise new controls and states storage for evaluation
     std::vector<m_ctrl> U_new;
     std::vector<m_ctrl> U_old;
-    std::vector<m_state> X_new;
+    //std::vector<m_state> X_new;
     std::vector<m_state> X_old;
 
     float lamda = 0.1;
@@ -108,7 +116,6 @@ class iLQR
     m_ctrl returnDesiredControl(int controlIndex, bool finalControl);
     void setInitControls(std::vector<m_ctrl> _initControls);
     void makeDataForOptimisation();
-
 
 };
 

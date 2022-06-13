@@ -27,54 +27,52 @@ double lasty = 0;
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods){
     // backspace: reset simulation
-    if (act == GLFW_PRESS && key == GLFW_KEY_BACKSPACE)
-    {
-        mj_resetData(model, mdata);
-        mj_forward(model, mdata);
-    }
-
-    float ctrlChange = 0.02;
-    if(key == 265 && act == GLFW_PRESS ){
-        // forwards arrow
-        mdata->ctrl[0] += ctrlChange;
-    }
-    else if(key == 263 && act == GLFW_PRESS ){
-        // back arrow
-        mdata->ctrl[0] -= ctrlChange;
-    }
-    else if(key == 264 && act == GLFW_PRESS ){
-        // left arrow
-        mdata->ctrl[1] += ctrlChange;
-    }
-    else if(key == 262 && act == GLFW_PRESS ){
-        // right arrow
-        mdata->ctrl[1] -= ctrlChange;
-    }
-    else if(key == 257 && act == GLFW_PRESS ){
-        //enter key
-        m_state collState;
-        //collState = modelTranslator->returnState(mdata);
-        //collState(0) += 0.00001;
-        collState << 0, 0, 0.02, 0, 0, 0, 0, 0;
-
-        modelTranslator->setState(mdata, collState);
-        mj_forward(model, mdata);
-        m_dof accels;
-        accels = modelTranslator->returnAccelerations(mdata);
-        cout << "accelerations: " << endl << accels << endl;
-        mju_copy(mdata->qacc_warmstart, mdata->qacc, model->nv);
-        for( int rep=1; rep<5; rep++ ){
-            mju_copy(mdata->qacc_warmstart, mdata->qacc, model->nv);
-            mj_forward(model, mdata);
-            //mj_forwardSkip(model, mdata, mjSTAGE_VEL, 1);
-            accels = modelTranslator->returnAccelerations(mdata);
-            cout << "accelerations: " << endl << accels << endl;
-
-        }
-
-    }
-
-    cout << "x direction ctrl: " << mdata->ctrl[0] << " y direction ctrl: " << mdata->ctrl[1] << endl;
+//    if (act == GLFW_PRESS && key == GLFW_KEY_BACKSPACE)
+//    {
+//        mj_resetData(model, mdata);
+//        mj_forward(model, mdata);
+//    }
+//
+//    float ctrlChange = 0.02;
+//    if(key == 265 && act == GLFW_PRESS ){
+//        // forwards arrow
+//        mdata->ctrl[0] += ctrlChange;
+//    }
+//    else if(key == 263 && act == GLFW_PRESS ){
+//        // back arrow
+//        mdata->ctrl[0] -= ctrlChange;
+//    }
+//    else if(key == 264 && act == GLFW_PRESS ){
+//        // left arrow
+//        mdata->ctrl[1] += ctrlChange;
+//    }
+//    else if(key == 262 && act == GLFW_PRESS ){
+//        // right arrow
+//        mdata->ctrl[1] -= ctrlChange;
+//    }
+//    else if(key == 257 && act == GLFW_PRESS ){
+//        //enter key
+//        m_state collState;
+//        //collState = modelTranslator->returnState(mdata);
+//        //collState(0) += 0.00001;
+//        collState << 0, 0, 0.02, 0, 0, 0, 0, 0;
+//
+//        modelTranslator->setState(mdata, collState);
+//        mj_forward(model, mdata);
+//        m_dof accels;
+//        accels = modelTranslator->returnAccelerations(mdata);
+//        cout << "accelerations: " << endl << accels << endl;
+//        mju_copy(mdata->qacc_warmstart, mdata->qacc, model->nv);
+//        for( int rep=1; rep<5; rep++ ){
+//            mju_copy(mdata->qacc_warmstart, mdata->qacc, model->nv);
+//            mj_forward(model, mdata);
+//            //mj_forwardSkip(model, mdata, mjSTAGE_VEL, 1);
+//            accels = modelTranslator->returnAccelerations(mdata);
+//            cout << "accelerations: " << endl << accels << endl;
+//
+//        }
+//
+//    }
 
 }
 
@@ -204,13 +202,14 @@ void render(){
             }
 
 
-            for (int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++) {
-                modelTranslator->stepModel(mdata, 1);
-            }
+//            for (int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++) {
+//
+//            }
+            modelTranslator->stepModel(mdata, 1);
 
             controlNum++;
 
-            if(controlNum >= ILQR_HORIZON_LENGTH){
+            if(controlNum >= MUJ_STEPS_HORIZON_LENGTH){
                 controlNum = 0;
                 cpMjData(model, mdata, optimiser->d_init);
                 simstart = mdata->time;
