@@ -16,18 +16,18 @@ public:
     // 20 * 20 (Torques) = 400, 400 * 0.001 = 0.4 (cost for indivudal control)
     // Compared to difference in cube state - 0.3 m * 0.3m = 0.09, 0.09 * 2 = 0.18 (cost for individual state difference)
     //float controlCost[NUM_CTRL] = {0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005, 0.0005};
-    float controlCost[NUM_CTRL] = {0, 0, 0, 0, 0, 0.0005, 0.001};
+    float controlCost[NUM_CTRL] = {0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001};
 
     // State vector is: 7 joint angles, two cube pos (X and Y), cube rot, 7 joint velocities, two cube velocities (X and Y)
-    float stateCosts[(2 * DOF)] = {0, 0, 0, 0, 0, 0, 0,
-                                    1, 1, 0,
-                                    0, 0, 0, 0, 0,0, 0,
-                                    0.2, 0.2, 0.01};
-
 //    float stateCosts[(2 * DOF)] = {0, 0, 0, 0, 0, 0, 0,
-//                                   10, 0.5,
-//                                   0, 0, 0, 0, 0,0, 0,
-//                                   0.1, 0.1};
+//                                    1, 1, 0,
+//                                    0, 0, 0, 0, 0,0, 0,
+//                                    0.2, 0.2, 0.01};
+
+    float stateCosts[(2 * DOF)] = {1, 1, 1, 1, 1, 1, 1,
+                                   0, 0, 0,
+                                   0.1, 0.1, 0.1, 0.1, 0.1,0.1, 0.1,
+                                   0, 0, 0};
 
     int terminalConstant = 10;
 

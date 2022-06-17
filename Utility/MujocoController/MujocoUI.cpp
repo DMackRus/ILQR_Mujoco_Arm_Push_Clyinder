@@ -145,6 +145,7 @@ void setupMujocoWorld(){
     char error[1000];
 
     model = mj_loadXML("franka_emika/franka_panda.xml", NULL, error, 1000);
+    model->opt.timestep = 0.004;
 
     if( !model ) {
         printf("%s\n", error);
@@ -250,63 +251,15 @@ void render_simpleTest(){
             for (int k = 0; k < NUM_CTRL; k++) {
                 mdata->ctrl[k] = testInitControls[controlNum](k);
             }
+            cout << "testInitControls[controlNum] " << testInitControls[controlNum] << endl;
 
-//            const std::string boxstring = "unactuated_box";
-//            int boxId = mj_name2id(model, mjOBJ_BODY, boxstring.c_str());
-//
-//            m_state currState = modelTranslator->returnState(mdata);
-//            currState(4) += 0.005;
-//            modelTranslator->setState(mdata, currState);
-
-
-
-//            m_quat currQuat = globalMujocoController->returnBodyQuat(model, mdata, boxId);
-//            m_point axis = globalMujocoController->quat2Axis(currQuat);
-//            axis(2) += 0.001;
-//            m_quat newQuat = globalMujocoController->axis2Quat(axis);
-//            globalMujocoController->setBodyQuat(model, mdata, boxId, newQuat);
-            //currState(9) = 1;
-            //modelTranslator->setState(mdata, currState);
-
-
-
-            //modelTranslator->setState(mdata, currState);
-
-//            const std::string link = "panda0_link7";
-//            int linkId = mj_name2id(model, mjOBJ_BODY, link.c_str());
-//            double jointVal = globalMujocoController->return_qPosVal(boxId, true, 6);
-//            jointVal -= 0.001;
-//            globalMujocoController->set_qPosVal(boxId, true, 6, jointVal);
-
-
-//            m_quat boxQuat = globalMujocoController->returnBodyQuat(model, mdata, boxId);
-//
-//            cout << "box quat returned: " << boxQuat << endl;
-//            m_point bodyAxis = globalMujocoController->quat2Axis(boxQuat);
-//            cout << "box axis returned: " << bodyAxis << endl;
-//            bodyAxis(1) += 0.005;
-//            cout << "box axis given: " << bodyAxis << endl;
-//            boxQuat = globalMujocoController->axis2Quat(bodyAxis);
-//            cout << "box quat given: " << boxQuat << endl;
-//            globalMujocoController->setBodyQuat(model, mdata, boxId, boxQuat);
-
-//            m_quat boxQuat = globalMujocoController->returnBodyQuat(boxId);
-//
-//            m_point boxAxis = globalMujocoController->quat2Axis(boxQuat);
-//
-//            boxAxis(1) += 0.01;
-//
-//            m_quat newBoxQuat = globalMujocoController->axis2Quat(boxAxis);
-//            globalMujocoController->setBodyQuat(boxId, newBoxQuat);
-//
-
-            for (int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++) {
+            for(int i = 0; i < optimiser->num_mj_steps_per_control; i++){
                 modelTranslator->stepModel(mdata, 1);
             }
 
             controlNum++;
 
-            if (controlNum >= ILQR_HORIZON_LENGTH) {
+            if (controlNum >= optimiser->ilqr_horizon_length) {
                 controlNum = 0;
                 cpMjData(model, mdata, d_init_test);
                 simstart = mdata->time;

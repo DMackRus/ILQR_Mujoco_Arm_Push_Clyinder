@@ -45,8 +45,6 @@ void testILQR(m_state X0);
 void simpleTest();
 void initControls();
 
-void setStateTest();
-
 int main() {
     initMujoco();
     // Franka arm with end effector parallel to ground configuration
@@ -57,7 +55,7 @@ int main() {
 
 // 0.6 normal starting point for cube
     X0 << -0.12, 0.5, 0.06, -2.5, 0, 1.34, 0,
-            0.6, 0.02, 0,
+            2, 0.02, 0,
             0, 0, 0, 0, 0, 0, 0,
             0, 0, 0;
 
@@ -87,6 +85,7 @@ int main() {
     }
     else{
         modelTranslator = new frankaModel(model, X_desired);
+        optimiser = new iLQR(model, mdata, X0, modelTranslator, globalMujocoController);
         simpleTest();
         render_simpleTest();
     }
@@ -94,106 +93,136 @@ int main() {
     return 0;
 }
 
-void setStateTest(){
-    d_init_test = mj_makeData(model);
-    modelTranslator = new frankaModel(model, X_desired);
-    cout << "X0 is: " << X0 << endl;
-    modelTranslator->setState(mdata, X0);
-
-    m_state check;
-    check = modelTranslator->returnState(mdata);
-    cout << "X0 is: " << check << endl;
-
-    for(int i = 0; i < 5; i++){
-        mj_step(model, mdata);
-    }
-    cpMjData(model, d_init_test, mdata);
-}
+//void initControls(){
+//    d_init_test = mj_makeData(model);
+//    modelTranslator->setState(mdata, X0);
+//    for(int i = 0; i < 200; i++){
+//        mj_step(model, mdata);
+//    }
+//    cpMjData(model, d_init_test, mdata);
+//
+//    const std::string test1 = "panda0_link0";
+//    const std::string test2 = "panda0_rightfinger";
+//    const std::string test3 = "box_obstacle_1";
+//    int test1id = mj_name2id(model, mjOBJ_BODY, test1.c_str());
+//    int test2id = mj_name2id(model, mjOBJ_BODY, test2.c_str());
+//    int test3id = mj_name2id(model, mjOBJ_BODY, test3.c_str());
+//    cout << "id 1: " << test1id << "id 2: " << test2id << " id: 3: " << test3id <<  endl;
+//    cout << "model nv: " << model->nv << " model nq: " << model->nq << " model nu: " << model->nu << endl;
+//
+//    const std::string endEffecName = "franka_gripper";
+//    int endEffecId = mj_name2id(model, mjOBJ_BODY, endEffecName.c_str());
+//
+//    m_pose startPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
+//    m_quat startQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
+//    cout << "start quat: " << startQuat << endl;
+//
+//    cout << "start pose is: " << startPose << endl;
+//    m_pose endPose;
+//    m_pose direction;
+//    direction << 0.6, 0, 0, 0, 0, 0;
+//    float magnitudeDiff = sqrt((pow(direction(0), 2)) + (pow(direction(1), 2)) + (pow(direction(2), 2)));
+//    //float forceMagnitude = 50;
+//    float forceMagnitude = 50;
+//    // normalise vector diff
+//    direction /= magnitudeDiff;
+//
+//    m_pose linearInterpolationDesiredForce;
+//    linearInterpolationDesiredForce = direction * forceMagnitude;
+//    cout << "linear interpolation desired force: " << linearInterpolationDesiredForce << endl;
+//    endPose = startPose + direction;
+//
+//    for(int i = 0; i <= optimiser->ilqr_horizon_length; i++){
+//
+//        m_pose currentEEPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
+//        m_quat currentQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
+//        m_quat invCurrentQuat = globalMujocoController->invQuat(currentQuat);
+//
+//        m_quat quatDiff = globalMujocoController->multQuat(startQuat, invCurrentQuat);
+//        //cout << "quat diff: " << quatDiff << endl;
+//        //cout << "end effec pose: " << currentEEPose << endl;
+//        MatrixXd Jac = globalMujocoController->calculateJacobian(model, mdata, endEffecId);
+//        MatrixXd Jac_t = Jac.transpose();
+//
+//        m_point axisDiff = globalMujocoController->quat2Axis(quatDiff);
+//
+//        m_ctrl desiredControls;
+//        m_pose desiredEEForce;
+//        m_pose diff;
+//        // cout << "currentEEPoint: " << currentEEPoint << endl;
+//        diff = (currentEEPose - endPose);
+//        diff(3) = axisDiff(0);
+//        diff(4) = axisDiff(1);
+//        diff(5) = axisDiff(2);
+//        desiredEEForce = linearInterpolationDesiredForce;
+//
+//        float zAxisRedFactor = 100 * diff(2);
+//        float rollAxisRedFactor = 10 * diff(3);
+//        float pitchAxisRedFactor = 10 * diff(4);
+//        float yawAxisRedFactor = 10 * diff(5);
+//        desiredEEForce(2) -= zAxisRedFactor;
+//        desiredEEForce(3) -= rollAxisRedFactor;
+//        desiredEEForce(4) -= pitchAxisRedFactor;
+//        desiredEEForce(5) -= yawAxisRedFactor;
+//
+//        desiredControls = Jac_t * desiredEEForce;
+//
+//        testInitControls.push_back(m_ctrl());
+//
+//        for(int k = 0; k < NUM_CTRL; k++){
+//
+//
+//            testInitControls[i](k) = desiredControls(k) + mdata->qfrc_bias[k];
+//            mdata->ctrl[k] = testInitControls[i](k);
+//        }
+//
+//        for(int j = 0; j < optimiser->num_mj_steps_per_control; j++){
+//            mj_step(model, mdata);
+//        }
+//    }
+//}
 
 void initControls(){
     d_init_test = mj_makeData(model);
     modelTranslator->setState(mdata, X0);
+
     for(int i = 0; i < 200; i++){
         mj_step(model, mdata);
     }
     cpMjData(model, d_init_test, mdata);
 
-    const std::string test1 = "panda0_link0";
-    const std::string test2 = "panda0_rightfinger";
-    const std::string test3 = "box_obstacle_1";
-    int test1id = mj_name2id(model, mjOBJ_BODY, test1.c_str());
-    int test2id = mj_name2id(model, mjOBJ_BODY, test2.c_str());
-    int test3id = mj_name2id(model, mjOBJ_BODY, test3.c_str());
-    cout << "id 1: " << test1id << "id 2: " << test2id << " id: 3: " << test3id <<  endl;
-    cout << "model nv: " << model->nv << " model nq: " << model->nq << " model nu: " << model->nu << endl;
+    for(int i = 0; i <= optimiser->ilqr_horizon_length; i++){
 
-    const std::string endEffecName = "franka_gripper";
-    int endEffecId = mj_name2id(model, mjOBJ_BODY, endEffecName.c_str());
-
-    m_pose startPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
-    m_quat startQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
-    cout << "start quat: " << startQuat << endl;
-
-    cout << "start pose is: " << startPose << endl;
-    m_pose endPose;
-    m_pose direction;
-    direction << 0.6, 0, 0, 0, 0, 0;
-    float magnitudeDiff = sqrt((pow(direction(0), 2)) + (pow(direction(1), 2)) + (pow(direction(2), 2)));
-    //float forceMagnitude = 50;
-    float forceMagnitude = 50;
-    // normalise vector diff
-    direction /= magnitudeDiff;
-
-    m_pose linearInterpolationDesiredForce;
-    linearInterpolationDesiredForce = direction * forceMagnitude;
-    cout << "linear interpolation desired force: " << linearInterpolationDesiredForce << endl;
-    endPose = startPose + direction;
-
-    for(int i = 0; i <= ILQR_HORIZON_LENGTH; i++){
-
-        m_pose currentEEPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
-        m_quat currentQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
-        m_quat invCurrentQuat = globalMujocoController->invQuat(currentQuat);
-
-        m_quat quatDiff = globalMujocoController->multQuat(startQuat, invCurrentQuat);
-        //cout << "quat diff: " << quatDiff << endl;
-        //cout << "end effec pose: " << currentEEPose << endl;
-        MatrixXd Jac = globalMujocoController->calculateJacobian(model, mdata, endEffecId);
-        MatrixXd Jac_t = Jac.transpose();
-
-        m_point axisDiff = globalMujocoController->quat2Axis(quatDiff);
-
-        m_ctrl desiredControls;
-        m_pose desiredEEForce;
-        m_pose diff;
-        // cout << "currentEEPoint: " << currentEEPoint << endl;
-        diff = (currentEEPose - endPose);
-        diff(3) = axisDiff(0);
-        diff(4) = axisDiff(1);
-        diff(5) = axisDiff(2);
-        desiredEEForce = linearInterpolationDesiredForce;
-
-        float zAxisRedFactor = 100 * diff(2);
-        float rollAxisRedFactor = 10 * diff(3);
-        float pitchAxisRedFactor = 10 * diff(4);
-        float yawAxisRedFactor = 10 * diff(5);
-        desiredEEForce(2) -= zAxisRedFactor;
-        desiredEEForce(3) -= rollAxisRedFactor;
-        desiredEEForce(4) -= pitchAxisRedFactor;
-        desiredEEForce(5) -= yawAxisRedFactor;
-
-        desiredControls = Jac_t * desiredEEForce;
+        m_state X_diff;
+        m_state X = modelTranslator->returnState(mdata);
+        m_ctrl nextControl;
+        X_diff = X_desired - X;
+        int K[7] = {870, 870, 870, 870, 120, 120, 120};
 
         testInitControls.push_back(m_ctrl());
 
+        nextControl(0) = X_diff(0) * K[0];
+        nextControl(1) = X_diff(1) * K[1];
+        nextControl(2) = X_diff(2) * K[2];
+        nextControl(3) = X_diff(3) * K[3];
+        nextControl(4) = X_diff(4) * K[4];
+        nextControl(5) = X_diff(5) * K[5];
+        nextControl(6) = X_diff(6) * K[6];
+
+
         for(int k = 0; k < NUM_CTRL; k++){
 
-
-            testInitControls[i](k) = desiredControls(k) + mdata->qfrc_bias[k];
+            //nextControl(k) = X_diff(k) * K[i];
+            testInitControls[i](k) = nextControl(k);
             mdata->ctrl[k] = testInitControls[i](k);
+
         }
 
-        for(int j = 0; j < NUM_MJSTEPS_PER_CONTROL; j++){
+        cout << "x_diff[i]" << X_diff << endl;
+        cout << "next control: " << nextControl << endl;
+        cout << "testInitControls[i]" << testInitControls[i] << endl;
+
+        for(int j = 0; j < optimiser->num_mj_steps_per_control; j++){
             mj_step(model, mdata);
         }
     }
@@ -229,6 +258,14 @@ void testILQR(m_state X0){
     outputFile << "T6" << ",";
     outputFile << "T7" << ",";
 
+    outputFile << "T1_init" << ",";
+    outputFile << "T2_init" << ",";
+    outputFile << "T3_init" << ",";
+    outputFile << "T4_init" << ",";
+    outputFile << "T5_init" << ",";
+    outputFile << "T6_init" << ",";
+    outputFile << "T7_init" << ",";
+
     outputFile << "J1" << ",";
     outputFile << "J2" << ",";
     outputFile << "J3" << ",";
@@ -253,9 +290,11 @@ void testILQR(m_state X0){
     outputFile << "Cube y V" << ",";
     outputFile << "Cube w V" << ",";
 
+
+
     outputFile << endl;
 
-    for(int i = 0; i < ILQR_HORIZON_LENGTH+1; i++){
+    for(int i = 0; i < MUJ_STEPS_HORIZON_LENGTH+1; i++){
         X_dyn.push_back(m_state());
         X_lin.push_back(m_state());
     }
@@ -270,7 +309,7 @@ void testILQR(m_state X0){
 
     if(TEST_LINEARISATION){
         cpMjData(model, mdata, d_init_test);
-        for(int i = 0;  i < ILQR_HORIZON_LENGTH; i++){
+        for(int i = 0;  i < MUJ_STEPS_HORIZON_LENGTH; i++){
             MatrixXd A = ArrayXXd::Zero((2 * DOF), (2 * DOF));
             MatrixXd B = ArrayXXd::Zero((2 * DOF), NUM_CTRL);
 
@@ -288,10 +327,8 @@ void testILQR(m_state X0){
 
                 modelTranslator->setControls(mdata, currControl);
 
-
-                for (int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++) {
-                    modelTranslator->stepModel(mdata, 1);
-                }
+                // TODO FIX LINEARISATION TESTING WITH NEW SCALING METHOD
+                modelTranslator->stepModel(mdata, 1);
 
                 X_dyn[1] = modelTranslator->returnState(mdata);
                 X_lin[1] = modelTranslator->returnState(mdata);
@@ -302,9 +339,7 @@ void testILQR(m_state X0){
 
                 modelTranslator->setControls(mdata, currControl);
 
-                for (int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++) {
-                    modelTranslator->stepModel(mdata, 1);
-                }
+                modelTranslator->stepModel(mdata, 1);
             }
             else{
                 // Calculate X bar and U bar at current iteration by comparing current state and control with last state and control
@@ -332,7 +367,6 @@ void testILQR(m_state X0){
 
                 // Calculate A and B matrices by linearising around previous state
                 optimiser->lineariseDynamicsSerial_trial_step(A, B, mdata, MUJOCO_DT);
-                optimiser->scaleLinearisation(A_scaled, B_scaled, A, B, NUM_MJSTEPS_PER_CONTROL);
 
 
                 if(i >= 500 and i <= 505){
@@ -388,9 +422,8 @@ void testILQR(m_state X0){
                     X_lin[i + 1] = X_lin[i] + X_bar_dot;
                 }
 
-                for(int i = 0; i < NUM_MJSTEPS_PER_CONTROL; i++){
-                    modelTranslator->stepModel(mdata, 1);
-                }
+                modelTranslator->stepModel(mdata, 1);
+
 
                 if(i % 50){
 //                    m_state x_dyn_diff, X_lin_diff;
@@ -413,7 +446,7 @@ void testILQR(m_state X0){
                 //cubeVelDiff += pow(((X_lin[i + 1](17) - X_dyn[i + 1](17)) * ILQR_DT),2);
                 //joint4Diff += pow(((X_lin[i + 1](14) - X_dyn[i + 1](14)) * ILQR_DT),2);
 
-                cubeVelDiff += pow(((X_lin[i](6) - X_dyn[i](6)) * ILQR_DT),2);
+                cubeVelDiff += pow(((X_lin[i](6) - X_dyn[i](6)) * optimiser->ilqr_dt),2);
 
             }
         }
@@ -440,12 +473,16 @@ void saveTrajecToCSV(){
             outputFile << optimiser->finalControls[i](j) << ",";
         }
 
-        for(int j = 0; j < DOF; j++){
-            //outputFile << optimiser->X_new[i](j) << ",";
+        for(int j = 0; j < NUM_CTRL; j++){
+            outputFile << optimiser->initControls[i](j) << ",";
         }
 
         for(int j = 0; j < DOF; j++){
-            //outputFile << optimiser->X_new[i](j+DOF) << ",";
+            outputFile << optimiser->X_final[i](j) << ",";
+        }
+
+        for(int j = 0; j < DOF; j++){
+            outputFile << optimiser->X_final[i](j+DOF) << ",";
         }
         outputFile << endl;
     }
@@ -455,8 +492,8 @@ void saveTrajecToCSV(){
 
 void saveStates(){
 
-    cout << "X_dyn[end]: " << X_dyn[ILQR_HORIZON_LENGTH] << endl;
-    cout << "X_lin[end]: " << X_lin[ILQR_HORIZON_LENGTH] << endl;
+    cout << "X_dyn[end]: " << X_dyn[MUJ_STEPS_HORIZON_LENGTH] << endl;
+    cout << "X_lin[end]: " << X_lin[MUJ_STEPS_HORIZON_LENGTH] << endl;
 
     cout << "X_dyn[0]: " << X_dyn[0] << endl;
     cout << "X_lin[0]: " << X_lin[0] << endl;
@@ -474,7 +511,7 @@ void saveStates(){
     outputDiffDyn << "Joint 5 vel dyn" << "," << "Joint 5 vel lin" << "," << "Joint 5 vel diff" << "," << "Joint 6 vel dyn" << "," << "Joint 6 vel lin" << "," << "Joint 6 vel diff" << ",";
     outputDiffDyn << "Cube X  vel dyn" << "," << "Cube X vel lin" << "," << "Cube X vel diff" << "," << "Cube Y vel dyn" << "," << "Cube Y vel lin" << "," << "Cube Y vel diff" << "," << "Cube rot vel dyn" << "," << "Cube rot vel lin" << "," << "Cube rot vel diff" << endl;
 
-    for(int i = 0; i < ILQR_HORIZON_LENGTH; i++){
+    for(int i = 0; i < MUJ_STEPS_HORIZON_LENGTH; i++){
         for(int j = 0; j < (2 * DOF); j++){
             float val;
             val = X_dyn[i](j);

@@ -67,11 +67,11 @@ float frankaModel::costFunction(int controlNum, int totalControls, m_state X, m_
     float terminalScalar = (percentageDone * terminalConstant) + 1;
     float jerkCost = 0;
 
-    if(!firstControl){
-        for(int i = 0; i < NUM_CTRL; i++){
-            jerkCost += 0.0001 * pow((U(i) - lastControl(i)), 2);
-        }
-    }
+//    if(!firstControl){
+//        for(int i = 0; i < NUM_CTRL; i++){
+//            jerkCost += 0.0001 * pow((U(i) - lastControl(i)), 2);
+//        }
+//    }
 
     temp = (terminalScalar * (X_diff.transpose() * Q * X_diff)) + (U.transpose() * R * U);
 
@@ -141,7 +141,7 @@ void frankaModel::costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_st
     m_state X;
     m_state X_diff;
     m_ctrl U;
-    float eps = 1e-1;
+    float eps = 1;
 
     X = returnState(d);
     U = returnControls(d);
@@ -180,7 +180,7 @@ void frankaModel::costDerivatives_fd(mjData *d, Ref<m_state> l_x, Ref<m_state_st
 
 m_ctrl frankaModel::costDerivatives_fd_1stOrder(m_state X, m_ctrl U, m_ctrl U_last, int controlNum, int totalControls, bool firstControl){
     m_ctrl l_u;
-    float eps = 1e-1;
+    float eps = 1;
 
     for(int i = 0; i < NUM_CTRL; i++){
         m_ctrl U_inc;

@@ -13,11 +13,14 @@
 #include "../model/frankaArmAndBox.h"
 #include "../Utility/MujocoController/MujocoUI.h"
 
-#define MUJOCO_DT 0.002
-#define ILQR_DT 0.02
-#define NUM_MJSTEPS_PER_CONTROL 10
-#define ILQR_HORIZON_LENGTH 500
-#define MUJ_STEPS_HORIZON_LENGTH 5000
+#define MUJOCO_DT 0.004
+//#define ILQR_DT 0.02
+//#define NUM_MJSTEPS_PER_CONTROL 10
+//#define ILQR_HORIZON_LENGTH 500
+#define MIN_STEPS_PER_CONTROL 2
+#define NUM_DATA_STRUCTURES 1250
+#define NUM_SCALING_LEVELS  1
+#define MUJ_STEPS_HORIZON_LENGTH 2500
 
 ;
 //template<int HORIZON_LENGTH>
@@ -36,12 +39,10 @@ class iLQR
     MujocoController *mujocoController;
 
     // Array of mujoco data structure along the trajectory
-    mjData* dArray[ILQR_HORIZON_LENGTH + 1];
+    mjData* dArray[NUM_DATA_STRUCTURES + 1];
     // Mujoco data for the initial state of the system
     mjData* d_init;
     m_state X0;
-
-    MatrixXd A_last = ArrayXXd::Zero((2 * DOF), (2 * DOF));
 
     /**************************************************************************
      *
@@ -55,7 +56,11 @@ class iLQR
     float epsConverge = 0.01;          // Satisfactory convergence of cost function
     int maxIterations = 20;
 
-    //int torqueLims[NUm_ctrl] = {100};
+    int scalingLevelCount = 0;
+    int scalingLevel[NUM_SCALING_LEVELS] = {10};
+    int num_mj_steps_per_control = scalingLevel[0];
+    float ilqr_dt = MUJOCO_DT * num_mj_steps_per_control;
+    int ilqr_horizon_length = MUJ_STEPS_HORIZON_LENGTH / num_mj_steps_per_control;
 
     std::vector<m_ctrl> initControls;
     std::vector<m_ctrl> finalControls;
@@ -88,8 +93,8 @@ class iLQR
     // Initialise new controls and states storage for evaluation
     std::vector<m_ctrl> U_new;
     std::vector<m_ctrl> U_old;
-    //std::vector<m_state> X_new;
-    std::vector<m_state> X_old;
+    std::vector<m_state> X_final;
+    //std::vector<m_state> X_old;
 
     float lamda = 0.1;
     int numIterations = 0;
@@ -98,6 +103,7 @@ class iLQR
     float rollOutTrajectory();
 
     void getDerivatives();
+    void copyDerivatives();
     void scaleLinearisation(Ref<m_state_state> A_scaled, Ref<m_state_ctrl> B_scaled, Ref<m_state_state> A, Ref<m_state_ctrl> B, int num_steps_per_dt);
 
     bool backwardsPass_Quu_reg();
@@ -108,6 +114,9 @@ class iLQR
 
     bool checkForConvergence(float newCost, float oldCost);
 
+    bool updateScaling();
+    void updateDataStructures();
+
     void lineariseDynamicsSerial(Ref<MatrixXd> _A, Ref<MatrixXd> _B, int controlNum);
     void lineariseDynamicsSerial_trial(Ref<MatrixXd> _A, Ref<MatrixXd> _B, int controlNum, float ilqr_dt);
 
@@ -116,6 +125,8 @@ class iLQR
     m_ctrl returnDesiredControl(int controlIndex, bool finalControl);
     void setInitControls(std::vector<m_ctrl> _initControls);
     void makeDataForOptimisation();
+
+
 
 };
 
