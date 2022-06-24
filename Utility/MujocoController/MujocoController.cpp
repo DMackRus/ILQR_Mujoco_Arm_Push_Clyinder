@@ -566,10 +566,8 @@ m_pose MujocoController::returnBodyPose(mjModel *m, mjData *d, int bodyId){
     m_quat bodyQuat = returnBodyQuat(m, d, bodyId);
     m_point bodyPoint = returnBodyPoint(m, d, bodyId);
     m_point bodyAxisAngles;
-    m_point eulAngles;
     //cout << "body quat is: " << bodyQuat << endl;
 
-    eulAngles = quat2Eul(bodyQuat);
     //cout << "body eul is: " << eulAngles << endl;
     bodyAxisAngles = quat2Axis(bodyQuat);
     //cout << "bodyAxisAngles: " << bodyAxisAngles << endl;
@@ -676,4 +674,15 @@ Eigen::MatrixXd MujocoController::calculateJacobian(mjModel *m, mjData *d, int b
 
 int MujocoController::returnModelID(const std::string& input){
     return(mj_name2id(model, mjOBJ_BODY, input.c_str()));
+}
+
+void cpMjData(const mjModel* m, mjData* d_dest, const mjData* d_src){
+    d_dest->time = d_src->time;
+    mju_copy(d_dest->qpos, d_src->qpos, m->nq);
+    mju_copy(d_dest->qvel, d_src->qvel, m->nv);
+    mju_copy(d_dest->qacc, d_src->qacc, m->nv);
+    mju_copy(d_dest->qacc_warmstart, d_src->qacc_warmstart, m->nv);
+    mju_copy(d_dest->qfrc_applied, d_src->qfrc_applied, m->nv);
+    mju_copy(d_dest->xfrc_applied, d_src->xfrc_applied, 6*m->nbody);
+    mju_copy(d_dest->ctrl, d_src->ctrl, m->nu);
 }

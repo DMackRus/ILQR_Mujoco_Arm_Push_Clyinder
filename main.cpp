@@ -27,6 +27,8 @@ ofstream outputDiffDyn;
 std::string diffDynFilename = "diffDyn.csv";
 ofstream outputFile;
 std::string filename = "finalTrajectory.csv";
+ofstream outputFileCosts;
+std::string costsFilename = "costs.csv";
 
 extern mjvCamera cam;                   // abstract camera
 extern mjvScene scn;                    // abstract scene
@@ -39,6 +41,7 @@ extern mjData* d_init_test;
 
 void saveStates();
 void saveTrajecToCSV();
+void saveCostsToCSV();
 
 void testILQR(m_state X0);
 
@@ -46,6 +49,7 @@ void simpleTest();
 void initControls();
 
 int main() {
+    //Eigen::initParallel();
     initMujoco();
     // Franka arm with end effector parallel to ground configuration
 //    X0 << 0, 0.275, -0.119, -2.76, 2.97, 0, 0,
@@ -54,15 +58,20 @@ int main() {
 //            0, 0;
 
 // 0.6 normal starting point for cube
+// end effector perpendicular to the ground configuration
     X0 << -0.12, 0.5, 0.06, -2.5, 0, 1.34, 0,
-            2, 0.02, 0,
+            0.8, 0.02, 0,
             0, 0, 0, 0, 0, 0, 0,
             0, 0, 0;
 
-    X_desired << 0 ,0, 0, 0, 0, 0, 0,
+    X_desired << 0 ,0.916, 0, -0.99, 0, 0.395, -0.06,
             0.8, 0.2, 0,
             0, 0, 0, 0, 0, 0, 0,
             0, 0, 0;
+
+//    Eigen::setNbThreads(1);
+    int n = Eigen::nbThreads( );
+    cout << "cores for eigne are: " << n << endl;
 
 
     if(RUN_ILQR){
@@ -93,140 +102,145 @@ int main() {
     return 0;
 }
 
+void initControls(){
+    d_init_test = mj_makeData(model);
+    modelTranslator->setState(mdata, X0);
+    for(int i = 0; i < 10; i++){
+        mj_step(model, mdata);
+    }
+    cpMjData(model, d_init_test, mdata);
+
+    const std::string test1 = "panda0_link0";
+    const std::string test2 = "panda0_rightfinger";
+    const std::string test3 = "box_obstacle_1";
+    int test1id = mj_name2id(model, mjOBJ_BODY, test1.c_str());
+    int test2id = mj_name2id(model, mjOBJ_BODY, test2.c_str());
+    int test3id = mj_name2id(model, mjOBJ_BODY, test3.c_str());
+    cout << "id 1: " << test1id << "id 2: " << test2id << " id: 3: " << test3id <<  endl;
+    cout << "model nv: " << model->nv << " model nq: " << model->nq << " model nu: " << model->nu << endl;
+
+    const std::string endEffecName = "franka_gripper";
+    int endEffecId = mj_name2id(model, mjOBJ_BODY, endEffecName.c_str());
+
+    const std::string testName = "panda0_leftfinger";
+    int testId = mj_name2id(model, mjOBJ_BODY, testName.c_str());
+    m_pose leftfingerPose = globalMujocoController->returnBodyPose(model, mdata, testId);
+    cout << "start pose left finger: " << leftfingerPose << endl;
+
+    m_pose startPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
+    m_quat startQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
+    cout << "start quat: " << startQuat << endl;
+
+    cout << "start pose is: " << startPose << endl;
+    m_pose endPose;
+    m_pose direction;
+    direction << 0.6, 0, 0, 0, 0, 0;
+    float magnitudeDiff = sqrt((pow(direction(0), 2)) + (pow(direction(1), 2)) + (pow(direction(2), 2)));
+    //float forceMagnitude = 50;
+    float forceMagnitude = 70;
+    // normalise vector diff
+    direction /= magnitudeDiff;
+
+    m_pose linearInterpolationDesiredForce;
+    linearInterpolationDesiredForce = direction * forceMagnitude;
+    cout << "linear interpolation desired force: " << linearInterpolationDesiredForce << endl;
+    endPose = startPose + direction;
+
+    for(int i = 0; i <= optimiser->ilqr_horizon_length; i++){
+
+        m_pose currentEEPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
+        m_quat currentQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
+        m_quat invCurrentQuat = globalMujocoController->invQuat(currentQuat);
+
+        m_quat quatDiff = globalMujocoController->multQuat(startQuat, invCurrentQuat);
+        //cout << "quat diff: " << quatDiff << endl;
+        //cout << "end effec pose: " << currentEEPose << endl;
+        MatrixXd Jac = globalMujocoController->calculateJacobian(model, mdata, endEffecId);
+        MatrixXd Jac_t = Jac.transpose();
+
+        m_point axisDiff = globalMujocoController->quat2Axis(quatDiff);
+
+        m_ctrl desiredControls;
+        m_pose desiredEEForce;
+        m_pose diff;
+        // cout << "currentEEPoint: " << currentEEPoint << endl;
+        diff = (currentEEPose - endPose);
+        diff(3) = axisDiff(0);
+        diff(4) = axisDiff(1);
+        diff(5) = axisDiff(2);
+        desiredEEForce = linearInterpolationDesiredForce;
+
+        float zAxisRedFactor = 100 * diff(2);
+        float rollAxisRedFactor = 10 * diff(3);
+        float pitchAxisRedFactor = 10 * diff(4);
+        float yawAxisRedFactor = 10 * diff(5);
+        desiredEEForce(2) -= zAxisRedFactor;
+        desiredEEForce(3) -= rollAxisRedFactor;
+        desiredEEForce(4) -= pitchAxisRedFactor;
+        desiredEEForce(5) -= yawAxisRedFactor;
+
+        desiredControls = Jac_t * desiredEEForce;
+
+        testInitControls.push_back(m_ctrl());
+
+        for(int k = 0; k < NUM_CTRL; k++){
+
+
+            testInitControls[i](k) = desiredControls(k) + mdata->qfrc_bias[k];
+            mdata->ctrl[k] = testInitControls[i](k);
+        }
+
+        for(int j = 0; j < optimiser->num_mj_steps_per_dynamics_deriv; j++){
+            mj_step(model, mdata);
+        }
+    }
+}
+
 //void initControls(){
 //    d_init_test = mj_makeData(model);
 //    modelTranslator->setState(mdata, X0);
-//    for(int i = 0; i < 200; i++){
+//
+//    for(int i = 0; i < 5; i++){
 //        mj_step(model, mdata);
 //    }
 //    cpMjData(model, d_init_test, mdata);
 //
-//    const std::string test1 = "panda0_link0";
-//    const std::string test2 = "panda0_rightfinger";
-//    const std::string test3 = "box_obstacle_1";
-//    int test1id = mj_name2id(model, mjOBJ_BODY, test1.c_str());
-//    int test2id = mj_name2id(model, mjOBJ_BODY, test2.c_str());
-//    int test3id = mj_name2id(model, mjOBJ_BODY, test3.c_str());
-//    cout << "id 1: " << test1id << "id 2: " << test2id << " id: 3: " << test3id <<  endl;
-//    cout << "model nv: " << model->nv << " model nq: " << model->nq << " model nu: " << model->nu << endl;
-//
-//    const std::string endEffecName = "franka_gripper";
-//    int endEffecId = mj_name2id(model, mjOBJ_BODY, endEffecName.c_str());
-//
-//    m_pose startPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
-//    m_quat startQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
-//    cout << "start quat: " << startQuat << endl;
-//
-//    cout << "start pose is: " << startPose << endl;
-//    m_pose endPose;
-//    m_pose direction;
-//    direction << 0.6, 0, 0, 0, 0, 0;
-//    float magnitudeDiff = sqrt((pow(direction(0), 2)) + (pow(direction(1), 2)) + (pow(direction(2), 2)));
-//    //float forceMagnitude = 50;
-//    float forceMagnitude = 50;
-//    // normalise vector diff
-//    direction /= magnitudeDiff;
-//
-//    m_pose linearInterpolationDesiredForce;
-//    linearInterpolationDesiredForce = direction * forceMagnitude;
-//    cout << "linear interpolation desired force: " << linearInterpolationDesiredForce << endl;
-//    endPose = startPose + direction;
-//
 //    for(int i = 0; i <= optimiser->ilqr_horizon_length; i++){
 //
-//        m_pose currentEEPose = globalMujocoController->returnBodyPose(model, mdata, endEffecId);
-//        m_quat currentQuat = globalMujocoController->returnBodyQuat(model, mdata, endEffecId);
-//        m_quat invCurrentQuat = globalMujocoController->invQuat(currentQuat);
-//
-//        m_quat quatDiff = globalMujocoController->multQuat(startQuat, invCurrentQuat);
-//        //cout << "quat diff: " << quatDiff << endl;
-//        //cout << "end effec pose: " << currentEEPose << endl;
-//        MatrixXd Jac = globalMujocoController->calculateJacobian(model, mdata, endEffecId);
-//        MatrixXd Jac_t = Jac.transpose();
-//
-//        m_point axisDiff = globalMujocoController->quat2Axis(quatDiff);
-//
-//        m_ctrl desiredControls;
-//        m_pose desiredEEForce;
-//        m_pose diff;
-//        // cout << "currentEEPoint: " << currentEEPoint << endl;
-//        diff = (currentEEPose - endPose);
-//        diff(3) = axisDiff(0);
-//        diff(4) = axisDiff(1);
-//        diff(5) = axisDiff(2);
-//        desiredEEForce = linearInterpolationDesiredForce;
-//
-//        float zAxisRedFactor = 100 * diff(2);
-//        float rollAxisRedFactor = 10 * diff(3);
-//        float pitchAxisRedFactor = 10 * diff(4);
-//        float yawAxisRedFactor = 10 * diff(5);
-//        desiredEEForce(2) -= zAxisRedFactor;
-//        desiredEEForce(3) -= rollAxisRedFactor;
-//        desiredEEForce(4) -= pitchAxisRedFactor;
-//        desiredEEForce(5) -= yawAxisRedFactor;
-//
-//        desiredControls = Jac_t * desiredEEForce;
+//        m_state X_diff;
+//        m_state X = modelTranslator->returnState(mdata);
+//        m_ctrl nextControl;
+//        X_diff = X_desired - X;
+//        int K[7] = {870, 870, 870, 870, 120, 120, 120};
 //
 //        testInitControls.push_back(m_ctrl());
 //
+//        nextControl(0) = X_diff(0) * K[0];
+//        nextControl(1) = X_diff(1) * K[1];
+//        nextControl(2) = X_diff(2) * K[2];
+//        nextControl(3) = X_diff(3) * K[3];
+//        nextControl(4) = X_diff(4) * K[4];
+//        nextControl(5) = X_diff(5) * K[5];
+//        nextControl(6) = X_diff(6) * K[6];
+//
+//
 //        for(int k = 0; k < NUM_CTRL; k++){
 //
-//
-//            testInitControls[i](k) = desiredControls(k) + mdata->qfrc_bias[k];
+//            //nextControl(k) = X_diff(k) * K[i];
+//            testInitControls[i](k) = nextControl(k);
 //            mdata->ctrl[k] = testInitControls[i](k);
+//
 //        }
+//
+//        cout << "x_diff[i]" << X_diff << endl;
+//        cout << "next control: " << nextControl << endl;
+//        cout << "testInitControls[i]" << testInitControls[i] << endl;
 //
 //        for(int j = 0; j < optimiser->num_mj_steps_per_control; j++){
 //            mj_step(model, mdata);
 //        }
 //    }
 //}
-
-void initControls(){
-    d_init_test = mj_makeData(model);
-    modelTranslator->setState(mdata, X0);
-
-    for(int i = 0; i < 200; i++){
-        mj_step(model, mdata);
-    }
-    cpMjData(model, d_init_test, mdata);
-
-    for(int i = 0; i <= optimiser->ilqr_horizon_length; i++){
-
-        m_state X_diff;
-        m_state X = modelTranslator->returnState(mdata);
-        m_ctrl nextControl;
-        X_diff = X_desired - X;
-        int K[7] = {870, 870, 870, 870, 120, 120, 120};
-
-        testInitControls.push_back(m_ctrl());
-
-        nextControl(0) = X_diff(0) * K[0];
-        nextControl(1) = X_diff(1) * K[1];
-        nextControl(2) = X_diff(2) * K[2];
-        nextControl(3) = X_diff(3) * K[3];
-        nextControl(4) = X_diff(4) * K[4];
-        nextControl(5) = X_diff(5) * K[5];
-        nextControl(6) = X_diff(6) * K[6];
-
-
-        for(int k = 0; k < NUM_CTRL; k++){
-
-            //nextControl(k) = X_diff(k) * K[i];
-            testInitControls[i](k) = nextControl(k);
-            mdata->ctrl[k] = testInitControls[i](k);
-
-        }
-
-        cout << "x_diff[i]" << X_diff << endl;
-        cout << "next control: " << nextControl << endl;
-        cout << "testInitControls[i]" << testInitControls[i] << endl;
-
-        for(int j = 0; j < optimiser->num_mj_steps_per_control; j++){
-            mj_step(model, mdata);
-        }
-    }
-}
 
 void simpleTest(){
 
@@ -307,151 +321,151 @@ void testILQR(m_state X0){
     m_state mujXDot;
     m_ctrl prevControl, currControl;
 
-    if(TEST_LINEARISATION){
-        cpMjData(model, mdata, d_init_test);
-        for(int i = 0;  i < MUJ_STEPS_HORIZON_LENGTH; i++){
-            MatrixXd A = ArrayXXd::Zero((2 * DOF), (2 * DOF));
-            MatrixXd B = ArrayXXd::Zero((2 * DOF), NUM_CTRL);
-
-            MatrixXd A_scaled = ArrayXXd::Zero((2 * DOF), (2 * DOF));
-            MatrixXd B_scaled = ArrayXXd::Zero((2 * DOF), NUM_CTRL);
-
-            if(i == 0) {
-                // set X0 dyn and lin as the initial state of the system
-                X_dyn[0] = modelTranslator->returnState(mdata);
-                X_lin[0] = modelTranslator->returnState(mdata);
-
-                for(int k = 0; k < NUM_CTRL; k++){
-                    currControl(k) = testInitControls[i](k);
-                }
-
-                modelTranslator->setControls(mdata, currControl);
-
-                // TODO FIX LINEARISATION TESTING WITH NEW SCALING METHOD
-                modelTranslator->stepModel(mdata, 1);
-
-                X_dyn[1] = modelTranslator->returnState(mdata);
-                X_lin[1] = modelTranslator->returnState(mdata);
-
-                for(int k = 0; k < NUM_CTRL; k++){
-                    currControl(k) = testInitControls[i](k);
-                }
-
-                modelTranslator->setControls(mdata, currControl);
-
-                modelTranslator->stepModel(mdata, 1);
-            }
-            else{
-                // Calculate X bar and U bar at current iteration by comparing current state and control with last state and control
-                m_state currentState_dyn, lastState_dyn, X_bar;
-                m_ctrl U_bar;
-                m_state X_bar_dot, X_dot;
-                X_dyn[i] = modelTranslator->returnState(mdata);
-                //cout << ""
-
-                currentState_dyn = X_dyn[i].replicate(1,1);
-                lastState_dyn = X_dyn[i - 1].replicate(1,1);
-
-                //currentState_dyn = X_lin[i].replicate(1,1);
-                //lastState_dyn = X_dyn[i - 1].replicate(1,1);
-
-                X_bar = currentState_dyn - lastState_dyn;
-
-                prevControl = modelTranslator->returnControls(mdata);
-                for(int k = 0; k < NUM_CTRL; k++){
-                    currControl(k) = testInitControls[i](k);
-                }
-
-                modelTranslator->setControls(mdata, currControl);
-                U_bar = currControl - prevControl;
-
-                // Calculate A and B matrices by linearising around previous state
-                optimiser->lineariseDynamicsSerial_trial_step(A, B, mdata, MUJOCO_DT);
-
-
-                if(i >= 500 and i <= 505){
-                    cout << "------------------------ i = 1190 ----------------------------" << endl;
-                    cout << "A is" << endl << A << endl;
-                    cout << "B is" << endl << B << endl;
-
-                }
+//    if(TEST_LINEARISATION){
+//        cpMjData(model, mdata, d_init_test);
+//        for(int i = 0;  i < MUJ_STEPS_HORIZON_LENGTH; i++){
+//            MatrixXd A = ArrayXXd::Zero((2 * DOF), (2 * DOF));
+//            MatrixXd B = ArrayXXd::Zero((2 * DOF), NUM_CTRL);
 //
-//                if(i == 900){
-//                    cout << "------------------------ i = 900 ----------------------------" << endl;
+//            MatrixXd A_scaled = ArrayXXd::Zero((2 * DOF), (2 * DOF));
+//            MatrixXd B_scaled = ArrayXXd::Zero((2 * DOF), NUM_CTRL);
+//
+//            if(i == 0) {
+//                // set X0 dyn and lin as the initial state of the system
+//                X_dyn[0] = modelTranslator->returnState(mdata);
+//                X_lin[0] = modelTranslator->returnState(mdata);
+//
+//                for(int k = 0; k < NUM_CTRL; k++){
+//                    currControl(k) = testInitControls[i](k);
+//                }
+//
+//                modelTranslator->setControls(mdata, currControl);
+//
+//                // TODO FIX LINEARISATION TESTING WITH NEW SCALING METHOD
+//                modelTranslator->stepModel(mdata, 1);
+//
+//                X_dyn[1] = modelTranslator->returnState(mdata);
+//                X_lin[1] = modelTranslator->returnState(mdata);
+//
+//                for(int k = 0; k < NUM_CTRL; k++){
+//                    currControl(k) = testInitControls[i](k);
+//                }
+//
+//                modelTranslator->setControls(mdata, currControl);
+//
+//                modelTranslator->stepModel(mdata, 1);
+//            }
+//            else{
+//                // Calculate X bar and U bar at current iteration by comparing current state and control with last state and control
+//                m_state currentState_dyn, lastState_dyn, X_bar;
+//                m_ctrl U_bar;
+//                m_state X_bar_dot, X_dot;
+//                X_dyn[i] = modelTranslator->returnState(mdata);
+//                //cout << ""
+//
+//                currentState_dyn = X_dyn[i].replicate(1,1);
+//                lastState_dyn = X_dyn[i - 1].replicate(1,1);
+//
+//                //currentState_dyn = X_lin[i].replicate(1,1);
+//                //lastState_dyn = X_dyn[i - 1].replicate(1,1);
+//
+//                X_bar = currentState_dyn - lastState_dyn;
+//
+//                prevControl = modelTranslator->returnControls(mdata);
+//                for(int k = 0; k < NUM_CTRL; k++){
+//                    currControl(k) = testInitControls[i](k);
+//                }
+//
+//                modelTranslator->setControls(mdata, currControl);
+//                U_bar = currControl - prevControl;
+//
+//                // Calculate A and B matrices by linearising around previous state
+//                optimiser->lineariseDynamicsSerial_trial_step(A, B, mdata, MUJOCO_DT);
+//
+//
+//                if(i >= 500 and i <= 505){
+//                    cout << "------------------------ i = 1190 ----------------------------" << endl;
 //                    cout << "A is" << endl << A << endl;
 //                    cout << "B is" << endl << B << endl;
 //
-//                    for(int i = 0; i < 10; i++){
-//                        mjrRect viewport = { 0, 0, 0, 0 };
-//                        glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
-//
-//                        // update scene and render
-//                        mjv_updateScene(model, mdata, &opt, NULL, &cam, mjCAT_ALL, &scn);
-//                        mjr_render(viewport, &scn, &con);
-//
-//                        // swap OpenGL buffers (blocking call due to v-sync)
-//                        glfwSwapBuffers(window);
-//
-//                        // process pending GUI events, call GLFW callbacks
-//                        glfwPollEvents();
-//                    }
-//
-//                    int a = 1;
-//                    int b = a;
 //                }
-
-                // Calculate X bar dot via X(.) = Ax + BU
-                X_bar_dot = (A_scaled * X_bar) + (B_scaled * U_bar);
-
-                // temporary, compare linearised x dot to mujoco velocities and accelerations:
-                m_dof velocities = modelTranslator->returnVelocities(mdata);
-                m_dof accelerations = modelTranslator->returnAccelerations(mdata);
-                for(int j = 0; j < DOF; j++){
-                    mujXDot(j) = velocities(j);
-                    mujXDot(j + DOF) = accelerations(j);
-                }
-
-
-                // Calculate next state via linearisation using euler integration of current X_dot
-                if(0){
-                    X_lin[i + 1] = X_dyn[i] + X_bar_dot;
-                    //X_lin[i + 1] = X_dyn[i] + (X_dot * MUJOCO_DT);
-
-                }
-                else{
-                    X_lin[i + 1] = X_lin[i] + X_bar_dot;
-                }
-
-                modelTranslator->stepModel(mdata, 1);
-
-
-                if(i % 50){
-//                    m_state x_dyn_diff, X_lin_diff;
-//                    cout << "x bar dot was: " << X_bar_dot << endl;
-//                    cout << "linearised x dot was: " << X_dot << endl;
-//                    cout << "mujoco X dot was: " << mujXDot << endl;
+////
+////                if(i == 900){
+////                    cout << "------------------------ i = 900 ----------------------------" << endl;
+////                    cout << "A is" << endl << A << endl;
+////                    cout << "B is" << endl << B << endl;
+////
+////                    for(int i = 0; i < 10; i++){
+////                        mjrRect viewport = { 0, 0, 0, 0 };
+////                        glfwGetFramebufferSize(window, &viewport.width, &viewport.height);
+////
+////                        // update scene and render
+////                        mjv_updateScene(model, mdata, &opt, NULL, &cam, mjCAT_ALL, &scn);
+////                        mjr_render(viewport, &scn, &con);
+////
+////                        // swap OpenGL buffers (blocking call due to v-sync)
+////                        glfwSwapBuffers(window);
+////
+////                        // process pending GUI events, call GLFW callbacks
+////                        glfwPollEvents();
+////                    }
+////
+////                    int a = 1;
+////                    int b = a;
+////                }
 //
-//                    x_dyn_diff = X_dyn[i] - X_dyn[i - 1];
-//                    X_lin_diff = X_lin[i] - X_lin[i - 1];
+//                // Calculate X bar dot via X(.) = Ax + BU
+//                X_bar_dot = (A_scaled * X_bar) + (B_scaled * U_bar);
 //
-//                    cout << "dyn diff: " << endl << x_dyn_diff << endl;
-//                    cout << "lin diff: " << endl << X_lin_diff << endl;
-//                    int a;
-                }
-
-//                if(X_lin[i + 1](17) - X_dyn[i + 1](17) > 0.1){
-//                    cout << "iteration big diff: " << i << endl;
+//                // temporary, compare linearised x dot to mujoco velocities and accelerations:
+//                m_dof velocities = modelTranslator->returnVelocities(mdata);
+//                m_dof accelerations = modelTranslator->returnAccelerations(mdata);
+//                for(int j = 0; j < DOF; j++){
+//                    mujXDot(j) = velocities(j);
+//                    mujXDot(j + DOF) = accelerations(j);
 //                }
-
-                //cubeVelDiff += pow(((X_lin[i + 1](17) - X_dyn[i + 1](17)) * ILQR_DT),2);
-                //joint4Diff += pow(((X_lin[i + 1](14) - X_dyn[i + 1](14)) * ILQR_DT),2);
-
-                cubeVelDiff += pow(((X_lin[i](6) - X_dyn[i](6)) * optimiser->ilqr_dt),2);
-
-            }
-        }
-        saveStates();
-    }
+//
+//
+//                // Calculate next state via linearisation using euler integration of current X_dot
+//                if(0){
+//                    X_lin[i + 1] = X_dyn[i] + X_bar_dot;
+//                    //X_lin[i + 1] = X_dyn[i] + (X_dot * MUJOCO_DT);
+//
+//                }
+//                else{
+//                    X_lin[i + 1] = X_lin[i] + X_bar_dot;
+//                }
+//
+//                modelTranslator->stepModel(mdata, 1);
+//
+//
+//                if(i % 50){
+////                    m_state x_dyn_diff, X_lin_diff;
+////                    cout << "x bar dot was: " << X_bar_dot << endl;
+////                    cout << "linearised x dot was: " << X_dot << endl;
+////                    cout << "mujoco X dot was: " << mujXDot << endl;
+////
+////                    x_dyn_diff = X_dyn[i] - X_dyn[i - 1];
+////                    X_lin_diff = X_lin[i] - X_lin[i - 1];
+////
+////                    cout << "dyn diff: " << endl << x_dyn_diff << endl;
+////                    cout << "lin diff: " << endl << X_lin_diff << endl;
+////                    int a;
+//                }
+//
+////                if(X_lin[i + 1](17) - X_dyn[i + 1](17) > 0.1){
+////                    cout << "iteration big diff: " << i << endl;
+////                }
+//
+//                //cubeVelDiff += pow(((X_lin[i + 1](17) - X_dyn[i + 1](17)) * ILQR_DT),2);
+//                //joint4Diff += pow(((X_lin[i + 1](14) - X_dyn[i + 1](14)) * ILQR_DT),2);
+//
+//                cubeVelDiff += pow(((X_lin[i](6) - X_dyn[i](6)) * optimiser->ilqr_dt),2);
+//
+//            }
+//        }
+//        saveStates();
+//    }
     cout << "cube vel diff total: " << cubeVelDiff << endl;
     cout << "joint 4 vel diff total: " << joint4Diff << endl;
 
@@ -461,7 +475,29 @@ void testILQR(m_state X0){
     optimiser->optimise();
 
     saveTrajecToCSV();
+    saveCostsToCSV();
 
+}
+
+void saveCostsToCSV(){
+
+    outputFileCosts.open(costsFilename);
+
+    outputFileCosts << "initial rollout " << ",";
+    for(int i = 1; i < optimiser->numIterations; i++){
+        outputFileCosts << "optimisation " << i << ",";
+    }
+    outputFileCosts << endl;
+
+    for(int j = 0; j < MUJ_STEPS_HORIZON_LENGTH; j++){
+        for(int i = 0; i < optimiser->numIterations; i++){
+
+            outputFileCosts << optimiser->cumulativeCosts[i][j] << ",";
+        }
+        outputFileCosts << endl;
+    }
+
+    outputFileCosts.close();
 }
 
 void saveTrajecToCSV(){

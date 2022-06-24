@@ -128,6 +128,8 @@ public:
     int returnModelID(const std::string& input);
 };
 
+void cpMjData(const mjModel* m, mjData* d_dest, const mjData* d_src);
+
 
 
 #endif //CLIONS_PROJECTS_MUJOCOCONTROLLER_H

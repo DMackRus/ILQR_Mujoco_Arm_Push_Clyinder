@@ -18,20 +18,10 @@
 #define DOF 10
 #define NUM_CTRL 7
 #define NUM_JOINTS 0
-#define PI 3.141519265
-
-#define ARM_MODEL 0
 
 using namespace Eigen;
 using namespace std;
 using namespace std::chrono;
-
-enum VecPos{
-    x,
-    y,
-    z
-};
-
 
 typedef Vector<double, 3> m_point;
 typedef Vector<double, 4> m_quat;
@@ -40,7 +30,6 @@ typedef Vector<double, 6> m_pose;
 typedef Matrix<double, NUM_CTRL, 1> m_ctrl;
 typedef Matrix<double, (2*DOF), 1> m_state;
 typedef Matrix<double, DOF, 1> m_dof;
-
 
 typedef Matrix<double, (2*DOF), (2*DOF)> m_state_state;
 typedef Matrix<double, (2*DOF), NUM_CTRL> m_state_ctrl;

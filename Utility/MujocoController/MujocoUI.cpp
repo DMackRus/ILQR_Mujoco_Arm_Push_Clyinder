@@ -251,9 +251,8 @@ void render_simpleTest(){
             for (int k = 0; k < NUM_CTRL; k++) {
                 mdata->ctrl[k] = testInitControls[controlNum](k);
             }
-            cout << "testInitControls[controlNum] " << testInitControls[controlNum] << endl;
 
-            for(int i = 0; i < optimiser->num_mj_steps_per_control; i++){
+            for(int i = 0; i < optimiser->num_mj_steps_per_dynamics_deriv; i++){
                 modelTranslator->stepModel(mdata, 1);
             }
 

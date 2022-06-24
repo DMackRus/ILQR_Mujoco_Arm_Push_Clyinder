@@ -1,10 +1,8 @@
 # ninja log v5
-1	2116	1654699029829736267	CMakeFiles/Mujoco_Acrobot_Control.dir/Utility/MujocoController/MujocoController.cpp.o	6163653326c1c26a
-1	80	1654698917539362823	build.ninja	4e2421e393696724
-1	20974	1655464281147435174	CMakeFiles/Mujoco_Acrobot_Control.dir/iLQR/iLQR_dataCentric.cpp.o	b4af102ce688b9e8
-20974	21832	1655464282019423176	../Mujoco_Acrobot_Control	5e8c04023d42dadc
-1	2560	1655462528034290761	CMakeFiles/Mujoco_Acrobot_Control.dir/main.cpp.o	97dc1da1534fd254
-1	2914	1655297360963280640	CMakeFiles/Mujoco_Acrobot_Control.dir/model/frankaArmAndBox.cpp.o	f289f9e19d071f33
-2	1237	1655462526710316983	CMakeFiles/Mujoco_Acrobot_Control.dir/Utility/MujocoController/MujocoUI.cpp.o	bf76122319c60fb5
-2	20557	1655464636862899409	CMakeFiles/Mujoco_Acrobot_Control.dir/iLQR/iLQR_dataCentric.cpp.o	b4af102ce688b9e8
-20557	21428	1655464637746878485	../Mujoco_Acrobot_Control	5e8c04023d42dadc
+1	1939	1655979668813991142	CMakeFiles/Mujoco_Acrobot_Control.dir/Utility/MujocoController/MujocoController.cpp.o	6163653326c1c26a
+1	80	1656058844731188614	build.ninja	4e2421e393696724
+2	22029	1656003349536571851	CMakeFiles/Mujoco_Acrobot_Control.dir/iLQR/iLQR_dataCentric.cpp.o	b4af102ce688b9e8
+22029	22965	1656003350492558417	../Mujoco_Acrobot_Control	5e8c04023d42dadc
+1	2622	1656003330152844234	CMakeFiles/Mujoco_Acrobot_Control.dir/main.cpp.o	97dc1da1534fd254
+2	3122	1655996485441035378	CMakeFiles/Mujoco_Acrobot_Control.dir/model/frankaArmAndBox.cpp.o	f289f9e19d071f33
+2	1622	1656003329156858230	CMakeFiles/Mujoco_Acrobot_Control.dir/Utility/MujocoController/MujocoUI.cpp.o	bf76122319c60fb5

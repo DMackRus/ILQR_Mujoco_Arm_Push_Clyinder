@@ -1,0 +1,32 @@
+eps threshold = 0.2
+
+New cost: 2.32422
+endEEState X:0.789319 y: -0.00230769 z: 0.380829
+terminal state is, diffFromDesired X: -0.0106809 Y: -0.00230769 Z: -0.0191706 roll: 0.0642597 pitch: -0.0247393 yaw: 0.217931
+ilQR converged, num Iterations: 5 final cost: 2.32422
+iLQR took 33 seconds
+
+eps threshold = 0.1
+
+New cost: 2.23603
+endEEState X:0.787264 y: -0.00100054 z: 0.384979
+terminal state is, diffFromDesired X: -0.0127358 Y: -0.00100054 Z: -0.0150215 roll: 0.0453514 pitch: -0.0126246 yaw: 0.21249
+ilQR converged, num Iterations: 6 final cost: 2.23603
+iLQR took 38 seconds
+
+
+eps threshold = 0.01
+
+New cost: 1.95825
+endEEState X:0.79027 y: 0.0055877 z: 0.354861
+terminal state is, diffFromDesired X: -0.00972977 Y: 0.0055877 Z: -0.0451386 roll: -0.0136572 pitch: 0.0129967 yaw: 0.17011
+ilQR converged, num Iterations: 8 final cost: 1.95825
+iLQR took 48 seconds
+
+eps threshold = 0.001
+
+New cost: 1.895
+endEEState X:0.791548 y: 0.00774815 z: 0.338477
+terminal state is, diffFromDesired X: -0.0084519 Y: 0.00774815 Z: -0.0615228 roll: 0.00316312 pitch: 0.0146555 yaw: 0.146471
+ilQR converged, num Iterations: 8 final cost: 1.895
+iLQR took 64 seconds

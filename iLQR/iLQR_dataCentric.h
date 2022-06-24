@@ -21,6 +21,7 @@
 #define NUM_DATA_STRUCTURES 1250
 #define NUM_SCALING_LEVELS  1
 #define MUJ_STEPS_HORIZON_LENGTH 2500
+#define EPS_GRAD_NEW_START_POINT 0.2
 
 ;
 //template<int HORIZON_LENGTH>
@@ -42,6 +43,7 @@ class iLQR
     mjData* dArray[NUM_DATA_STRUCTURES + 1];
     // Mujoco data for the initial state of the system
     mjData* d_init;
+    mjData* d_current_start;
     m_state X0;
 
     /**************************************************************************
@@ -53,14 +55,19 @@ class iLQR
     float maxLamda = 10000;             // Maximum lambda before canceliing optimisation
     float minLamda = 0.00001;           // Minimum lamda
     float lamdaFactor = 10;             // Lamda multiplicative factor
-    float epsConverge = 0.01;          // Satisfactory convergence of cost function
+    float epsConverge = 0.01;          // Satisfactory convergence of cost function 0.01
     int maxIterations = 20;
 
+    int startingTimeIndex = 0;
+    double startCostFromStartIndex = 0.0f;
     int scalingLevelCount = 0;
     int scalingLevel[NUM_SCALING_LEVELS] = {10};
-    int num_mj_steps_per_control = scalingLevel[0];
-    float ilqr_dt = MUJOCO_DT * num_mj_steps_per_control;
-    int ilqr_horizon_length = MUJ_STEPS_HORIZON_LENGTH / num_mj_steps_per_control;
+    // these need to be integer multiples of one another
+    int num_mj_steps_per_dynamics_deriv = scalingLevel[0];
+    int num_mj_steps_per_control_deriv = 20;
+    int ilqr_horizon_length = MUJ_STEPS_HORIZON_LENGTH / num_mj_steps_per_dynamics_deriv;
+
+    std::vector<std::vector<double>> cumulativeCosts;
 
     std::vector<m_ctrl> initControls;
     std::vector<m_ctrl> finalControls;
@@ -100,7 +107,7 @@ class iLQR
     int numIterations = 0;
 
     void optimise();
-    float rollOutTrajectory();
+    double rollOutTrajectory();
 
     void getDerivatives();
     void copyDerivatives();
@@ -110,17 +117,15 @@ class iLQR
     bool backwardsPass_Vxx_reg();
     bool isMatrixPD(Ref<MatrixXd> matrix);
 
-    float forwardsPass(float oldCost);
+    double forwardsPass(float oldCost);
 
     bool checkForConvergence(float newCost, float oldCost);
+    int checkCostReductionForNewStartingPoint();
 
     bool updateScaling();
     void updateDataStructures();
 
-    void lineariseDynamicsSerial(Ref<MatrixXd> _A, Ref<MatrixXd> _B, int controlNum);
-    void lineariseDynamicsSerial_trial(Ref<MatrixXd> _A, Ref<MatrixXd> _B, int controlNum, float ilqr_dt);
-
-    void lineariseDynamicsSerial_trial_step(Ref<MatrixXd> _A, Ref<MatrixXd> _B, mjData *linearisedData, float dt);
+    void lineariseDynamicsSerial_trial_step(Ref<MatrixXd> _A, Ref<MatrixXd> _B, mjData *linearisedData, float dt, Ref<m_state> l_x, Ref<m_state_state> l_xx, int controlNum, int totalControls, bool computeCost);
 
     m_ctrl returnDesiredControl(int controlIndex, bool finalControl);
     void setInitControls(std::vector<m_ctrl> _initControls);
@@ -129,7 +134,5 @@ class iLQR
 
 
 };
-
-void cpMjData(const mjModel* m, mjData* d_dest, const mjData* d_src);
 
 #endif //MUJOCO_ACROBOT_CONTROL_ILQR_DATACENTRIC_H
